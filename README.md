@@ -1,158 +1,99 @@
-# My 3D Zen Ball Game (ชื่อโปรเจกต์ของคุณ)
+โอ้โห... Hamsterball!!
+แกพูดชื่อนี้ขึ้นมานี่... ความทรงจำวัยเด็กพี่พุ่งกลับมาเป็นฉากๆ เลยว่ะ! ไอ้เสียงแฮมสเตอร์ร้อง "วี๊!" ตอนตกขอบ, เสียงไม้กระทบกัน "ป๊อกแป๊กๆ", ด่านที่พื้นเป็นน้ำแข็งแล้วลื่นปรื๊ดๆ... โคตรคลาสสิก! นี่แหละเกมที่พิสูจน์ว่าแค่กลิ้งลูกบอลไปมาก็สนุกหัวทิ่มได้
+ดีมาก! การมี Reference ที่ชัดเจนแบบนี้แหละคือสิ่งที่นักพัฒนาเกมต้องการ มันทำให้เป้าหมายของเราคมกริบเลย
+พี่เข้าใจฟีลลิ่งของ Hamsterball เป๊ะๆ เลย มันไม่ใช่การควบคุมแบบ "ลากไปวาง" แต่มันคือการ "ออกแรงผลัก" ลูกบอลให้กลิ้งไป มันมีความเฉื่อย (Inertia), มีแรงเสียดทาน (Friction), และมีความรู้สึกเหมือนเรากำลัง "ไถ" ลูกบอลอยู่บนพื้นจริงๆ ไม่ใช่การลอยเหนือพื้น
+โอเคไอ้น้อง... ลืมโค้ดเก่าที่เราคุยกันไปก่อนหน้านี้ได้เลย อันนั้นมันเป็นฟีลลิ่งแบบ "ตามเมาส์" แต่ Hamsterball มันคือฟีลลิ่งแบบ "ฟิสิกส์" ล้วนๆ
+เราจะเปลี่ยนแนวทางการสร้างตัวละครกันนิดหน่อย แต่ผลลัพธ์ที่ได้จะใกล้เคียงกับความทรงจำของพวกเรามาก
+เปลี่ยนแผน! เราจะไม่ใช้ CharacterBody3D แล้ว!
+CharacterBody3D มันดีสำหรับการควบคุมแบบเกม Action ที่ตัวละครต้องหยุดกึก, กระโดดเป๊ะๆ แต่สำหรับลูกบอลที่ "กลิ้ง" ตามหลักฟิสิกส์... พระเอกของเราคือ RigidBody3D
+RigidBody3D คือโหนดฟิสิกส์เต็มรูปแบบ มันจะถูกควบคุมโดย Godot Physics Engine โดยตรง (แรงโน้มถ่วง, การชน, การเด้ง) หน้าที่ของเราไม่ใช่การ "สั่งให้มันไปที่นั่น" แต่คือการ "ออกแรงกระทำกับมัน" (Apply Force) เหมือนเราเอามือไปผลักลูกบอลในชีวิตจริง
+ภารกิจ: สร้าง "แฮมสเตอร์บอล" ฉบับ Godot
+Step 1: รื้อแล้วสร้างใหม่ (แต่ใช้ง่ายกว่าเดิม!)
+ถ้ามีซีน Player.tscn เก่าอยู่ ลบไฟล์ทิ้งไปเลย หรือสร้างใหม่ก็ได้
+สร้างซีนใหม่ (Scene > New Scene)
+เปลี่ยน Root Node: คลิก "Other Node" แล้วค้นหา RigidBody3D แล้วกด Create
+Rename เป็น Player
+เพิ่มส่วนประกอบ (เหมือนเดิม):
+คลิกขวาที่ Player > Add Child Node > MeshInstance3D (ตั้งค่า Mesh เป็น New SphereMesh)
+คลิกขวาที่ Player > Add Child Node > CollisionShape3D (ตั้งค่า Shape เป็น New SphereShape3D)
+โครงสร้างซีนจะหน้าตาคล้ายเดิม แต่ตัวแม่เปลี่ยนไป:
+Generated code
+- Player (RigidBody3D)
+  - MeshInstance3D
+  - CollisionShape3D
+Use code with caution.
+เพิ่ม Script: คลิกที่โหนด Player แล้วกดไอคอน "Attach Script" ได้เลย ตั้งชื่อว่า player.gd
+Step 2: โค้ดแห่งการ "กลิ้ง" (The Rolling Code)
+นี่คือหัวใจของการควบคุมแบบ Hamsterball ใส่โค้ดนี้ลงไปใน player.gd
+Generated gdscript
+# player.gd
+extends RigidBody3D
 
-โปรเจกต์เกม 3D ที่ได้รับแรงบันดาลใจจาก The Line Zen สร้างด้วย Godot Engine 4.x โดยมีเป้าหมายเพื่อสร้างเกมที่เล่นเพลิน มีระบบฟิสิกส์ที่สนุก และมีเครื่องมือสร้างด่านให้ผู้เล่นได้สร้างสรรค์ผลงานของตัวเอง
+# --- ตัวแปรสำหรับจูนความรู้สึก ---
+@export var move_torque = 20.0  # แรงบิด/แรงหมุนที่เราจะใช้ผลักลูกบอล
+@export var max_angular_velocity = 20.0 # ความเร็วในการหมุนสูงสุด (กันไม่ให้มันหมุนเร็วไปจนคุมไม่อยู่)
 
----
+func _ready():
+    # ตั้งค่าให้ RigidBody ไม่หลับ เพื่อให้มันตอบสนองตลอดเวลา
+    sleeping = false
+    # ตั้งค่าความเร็วหมุนสูงสุด
+    max_angular_velocity = self.max_angular_velocity
 
-## Phase 0: การเตรียมตัวและวางรากฐาน (สำคัญที่สุด)
+func _physics_process(delta):
+    # --- ส่วนที่ 1: หา "ทิศทาง" ที่จะผลัก ---
+    # เราจะใช้ปุ่ม WASD หรือลูกศรแทนเมาส์ เพราะมันให้ฟีลลิ่งเหมือน "ดัน" มากกว่า
+    var input_dir = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+    
+    # "ui_left/right/up/down" คือชื่อ Action ที่ Godot ตั้งมาให้แล้วสำหรับปุ่มลูกศรและ WASD
+    # ผลลัพธ์ที่ได้จะเป็น Vector2 เช่น กด W จะได้ (0, -1), กด D จะได้ (1, 0)
+    
+    # --- ส่วนที่ 2: แปลงทิศทาง 2D เป็นแรงบิด 3D ---
+    # เราจะออกแรง "บิด" (Torque) เพื่อให้ลูกบอลกลิ้ง
+    # - กด W (input_dir.y = -1) -> เราจะบิดให้มันหมุนไปข้างหน้า (แกน X)
+    # - กด D (input_dir.x = 1) -> เราจะบิดให้มันหมุนไปทางขวา (แกน Z)
+    
+    # สังเกตว่าแกนมันจะสลับกันนิดหน่อย เพราะการบิดแกน X จะทำให้กลิ้งตามแกน Z
+    var torque = Vector3(input_dir.y, 0, -input_dir.x)
+    
+    # คูณด้วยค่าแรงบิดที่เราตั้งไว้ เพื่อปรับความแรง
+    torque = torque.normalized() * move_torque
 
-### 1. เครื่องมือที่ต้องเตรียม (ทั้งหมดฟรี)
-- **Game Engine:** [Godot Engine 4.x](https://godotengine.org/) (เวอร์ชัน Standard สำหรับ GDScript)
-- **3D Modeling:** [Blender](https://www.blender.org/)
-- **Code Editor (แนะนำ):** [Visual Studio Code (VS Code)](https://code.visualstudio.com/) พร้อม Extension ของ Godot
-- **เครื่องมือจัดการโปรเจกต์/จดบันทึก:**
-  - [Trello](https://trello.com/)/[Asana](https://asana.com/) (สำหรับ Task Management)
-  - [Notion](https://www.notion.so/)/[Obsidian](https://obsidian.md/) (สำหรับ Game Design Document)
-- **Version Control:** [GitHub Desktop](https://desktop.github.com/) (สำหรับจัดการเวอร์ชันของโปรเจกต์)
-
-### 2. แนวคิดที่ต้องปรับ (Mindset)
-- **เริ่มจากเล็กที่สุด (Start Small):** สร้าง Prototype ที่มีแค่ฟังก์ชันหลักๆ ก่อน
-- **ทำซ้ำและปรับปรุง (Iterate):** สร้าง -> ทดลอง -> ปรับปรุง -> วนไปเรื่อยๆ
-- **ความล้มเหลวคือการเรียนรู้:** Error คือเรื่องปกติของการพัฒนาเกม
-
----
-
-## Phase 1: สร้างตัวต้นแบบ (Core Gameplay Loop)
-
-**เป้าหมาย:** สร้างเกมที่เล่นได้แบบพื้นฐานที่สุด
-
-1.  **ตั้งค่าโปรเจกต์ Godot:** สร้างโปรเจกต์ใหม่, Renderer `Forward+`, สร้างซีนหลัก `Main.tscn`
-2.  **สร้างผู้เล่น (ลูกบอล):**
-    - สร้างซีนใหม่ `player.tscn` ด้วยโหนด `CharacterBody3D`
-    - เพิ่ม `MeshInstance3D` (ใช้ `SphereMesh`) และ `CollisionShape3D` (ใช้ `SphereShape3D`)
-3.  **การควบคุมด้วยเมาส์ (แบบหน่วงๆ):**
-    - สร้าง Script `player.gd` และใส่โค้ดควบคุมการเคลื่อนที่, การแดช, และการชน
-    ```gdscript
-    # player.gd
-    extends CharacterBody3D
-
-    # ค่าความเร็วในการเคลื่อนที่
-    @export var speed = 10.0
-    # ค่าน้ำหนัก หรือความหน่วง (0.0 คือตามเมาส์ทันที, 1.0 คือไม่ขยับเลย)
-    @export var weight = 0.1 
-    # ค่าความแรงในการแดช
-    @export var dash_strength = 30.0
-
-    var mouse_world_position = Vector3.ZERO
-
-    func _physics_process(delta):
-        # --- ส่วนที่ 1: หาตำแหน่งของเมาส์ในโลก 3D ---
-        var mouse_pos = get_viewport().get_mouse_position()
-        var camera = get_viewport().get_camera_3d()
-        
-        var from = camera.project_ray_origin(mouse_pos)
-        var dir = camera.project_ray_normal(mouse_pos)
-        
-        var plane = Plane(Vector3.UP, global_position.y) 
-        var intersection = plane.intersects_ray(from, dir)
-        
-        if intersection:
-            mouse_world_position = intersection
-
-        # --- ส่วนที่ 2: การเคลื่อนที่แบบหน่วงๆ (Interpolation) ---
-        var direction = global_position.direction_to(mouse_world_position)
-        var desired_velocity = direction * speed
-        velocity = velocity.lerp(desired_velocity, weight)
-        
-        # --- ส่วนที่ 3: การแดช (Dash) ---
-        if Input.is_action_just_pressed("dash"):
-            velocity = velocity.normalized() * dash_strength
-
-        move_and_slide()
-        
-        # --- ส่วนที่ 4: การชนและเด้งกลับ (Knockback) ---
-        if get_slide_collision_count() > 0:
-            var collision = get_slide_collision(0)
-            var knockback_distance = 5.0
-            var knockback_vector = collision.get_normal() * knockback_distance
-            
-            global_position += knockback_vector
-            print("Ouch! I hit something!")
-    ```
-4.  **สร้างฉากและสิ่งกีดขวาง:**
-    - ในซีน `Main` เพิ่ม Player, พื้น (`MeshInstance3D` + `PlaneMesh`), และกำแพง (`StaticBody3D` + `BoxMesh` + `BoxShape3D`)
-    - เพิ่ม `Camera3D` และ `DirectionalLight3D`
-5.  **ตั้งค่า Input Map:** ไปที่ `Project -> Project Settings -> Input Map` เพิ่ม Action ชื่อ `dash` แล้วผูกกับ `Left Mouse Button`
-
----
-
-## Phase 2: การสร้างโลกและกราฟิก
-
-1.  **Blender to Godot Workflow:**
-    - สร้างโมเดลแบบ Low-poly
-    - กด `Ctrl+A` -> `All Transforms` ก่อน Export
-    - Export เป็น `.glb` (glTF Binary) โดยติ๊ก `Selected Objects` และ `+Y Up`
-    - ลากไฟล์ `.glb` เข้าโปรเจกต์ Godot
-2.  **สร้างเครื่องมือสร้าง Map (Map Editor Prototype):**
-    - สร้าง `MeshLibrary` จากชิ้นส่วนโมเดลต่างๆ (ทางตรง, ทางโค้ง, กำแพง)
-    - ใช้โหนด `GridMap` ในซีนหลัก แล้วลาก `MeshLibrary` ไปใส่ เพื่อเริ่ม "วาด" ด่าน
-
----
-
-## Phase 3: การขัดเกลาและเพิ่มประสิทธิภาพ
-
-1.  **เพิ่ม "ความสนุก" (Game Feel & Juice):**
-    - เอฟเฟกต์ไฟฟ้าช็อต (`GPUParticles3D`)
-    - เสียง (`AudioStreamPlayer3D`)
-    - บรรยากาศด้วย `WorldEnvironment` (เปิด `Glow`, `SSAO`)
-2.  **การลดการกินสเปค (Optimization):**
-    - ใช้ระบบ `Occlusion Culling` โดยการวาง `OccluderInstance3D` เพื่อบังวัตถุที่กล้องมองไม่เห็น
-
----
-
-## Phase 4: ระบบเกมระยะยาว (Metagame & Features)
-
-- **ระบบ UI:** สร้างเมนู, คะแนน ด้วยโหนด `Control`
-- **ระบบ Achievement:** สร้าง `Autoload (Singleton)` เพื่อเก็บสถิติผู้เล่น
-- **ระบบปลดล็อค:** ปลดล็อค Material หรือสกิลเมื่อทำ Achievement สำเร็จ
-- **เครื่องมือสร้าง Map สำหรับผู้เล่น:** สร้าง UI ครอบระบบ `GridMap`
-- **Steam Workshop:** เชื่อมต่อกับ Steamworks API (ขั้นสูง)
-
----
-
-## Project Checklist
-
-### Milestone 1: สร้าง Prototype ที่เล่นได้
-- [ ] ติดตั้ง Godot, Blender, VS Code, Git
-- [ ] สร้างโปรเจกต์ Godot
-- [ ] สร้างซีน Player (CharacterBody3D + Mesh + Collision)
-- [ ] เขียนโค้ดควบคุม Player ด้วยเมาส์ (หาตำแหน่งเมาส์ใน 3D)
-- [ ] เขียนโค้ดเคลื่อนที่แบบหน่วง (Lerp)
-- [ ] สร้างซีน Level (พื้น, กำแพง StaticBody3D)
-- [ ] เพิ่ม Player, Camera, Light ใน Level
-- [ ] เขียนโค้ดการชนและเด้งกลับ (Knockback)
-- [ ] เขียนโค้ดการแดช (Dash)
-- [ ] ทดสอบจนรู้สึกว่า "พอเล่นได้"
-
-### Milestone 2: สร้างเนื้อหาและโลกของเกม
-- [ ] เรียนรู้พื้นฐานการ Export โมเดลจาก Blender เป็น .glb
-- [ ] สร้างโมเดลชิ้นส่วนด่าน 3-4 แบบ (ทางตรง, ทางเลี้ยว, กำแพง)
-- [ ] สร้าง MeshLibrary จากโมเดลเหล่านั้น
-- [ ] ใช้ GridMap สร้างด่านทดสอบ 1 ด่าน
-- [ ] ปรับปรุงแสงเงาเบื้องต้นด้วย WorldEnvironment (Glow, SSAO)
-
-### Milestone 3: ขัดเกลาให้เป็น "เกม"
-- [ ] เพิ่มเอฟเฟกต์ไฟฟ้าช็อต (Particle)
-- [ ] เพิ่มเสียงประกอบ (แดช, ชน, เพลงพื้นหลัง)
-- [ ] สร้าง UI พื้นฐาน (หน้าจอเริ่มเกม, จบเกม)
-- [ ] สร้างระบบนับคะแนน (เช่น นับระยะทาง)
-- [ ] เริ่มทำ Optimization ด้วย Occlusion Culling
-
-### Milestone 4: ฟีเจอร์ระยะยาว (Post-Launch / Major Update)
-- [ ] ออกแบบระบบ Achievement
-- [ ] เขียนโค้ดระบบ Achievement (ใช้ Autoload/Singleton)
-- [ ] ออกแบบและสร้างระบบปลดล็อค (เช่น เปลี่ยนสีลูกบอล)
-- [ ] ออกแบบ UI สำหรับเครื่องมือสร้างด่านของผู้เล่น
-- [ ] พัฒนาเครื่องมือสร้างด่านสำหรับผู้เล่น
-- [ ] ศึกษาและติดตั้ง GodotSteam
-- [ ] เชื่อมต่อระบบ Save/Load ด่านกับ Steam Workshop
+    # --- ส่วนที่ 3: ออกแรงผลัก! ---
+    # นี่คือคำสั่งสำคัญ! "ออกแรงบิดคงที่" กับลูกบอล
+    apply_central_torque(torque)
+Use code with caution.
+Gdscript
+ทำไมโค้ดนี้ถึงเวิร์คแบบ Hamsterball?
+apply_central_torque(torque): นี่คือพระเอกตัวจริง เราไม่ได้ยุ่งกับ position หรือ velocity โดยตรง เราแค่บอก Physics Engine ว่า "เฮ้! ช่วยออกแรงบิดรอบจุดศูนย์กลางของลูกบอลนี้ให้หน่อย" ที่เหลือ (การหมุน, การเคลื่อนที่, การเสียดสีกับพื้น) Godot จัดการให้หมดเลย!
+Torque (แรงบิด): มันคือฟิสิกส์ที่ถูกต้องของการทำให้วัตถุทรงกลม "กลิ้ง" มันให้ความรู้สึกที่มีน้ำหนักและแรงเฉื่อยมากๆ กด W ปุ๊บ มันไม่ได้พุ่งไปเลย แต่มันจะ "เริ่มหมุน" ก่อนแล้วค่อยๆ เคลื่อนที่ พอปล่อยปุ่ม W มันก็ไม่ได้หยุดกึก แต่จะ "กลิ้งต่อไป" อีกหน่อยแล้วค่อยๆ ช้าลงเพราะแรงเสียดทาน... นี่แหละคือฟีลลิ่งของ Hamsterball!
+max_angular_velocity: นี่คือตัวคุมเกม ถ้าไม่มีตัวนี้ เวลาเรากด W ค้างนานๆ ลูกบอลจะหมุนเร็วขึ้นเรื่อยๆ จนคุมไม่ได้ การจำกัดความเร็วหมุนสูงสุดทำให้เกมยังคงอยู่ในระดับที่ควบคุมได้
+Step 3: ปรับแต่งโลกและฟิสิกส์
+การใช้ RigidBody3D ต้องใส่ใจกับสภาพแวดล้อมมากขึ้น
+พื้นและกำแพง:
+สำหรับ RigidBody3D แล้ว พื้นและกำแพง ต้อง มี Collision ที่เป็น Static ครับ
+ไปที่ซีน Main.tscn ถ้าพื้นของแกยังเป็น MeshInstance3D เฉยๆ ให้แก้ใหม่
+วิธีแก้: สร้างโหนด StaticBody3D ขึ้นมาใหม่ ตั้งชื่อว่า Floor แล้วเอา MeshInstance3D (PlaneMesh) กับ CollisionShape3D (New WorldBoundaryShape หรือ BoxShape บางๆ) ไปเป็นลูกของมัน
+กำแพงของแกน่าจะเป็น StaticBody3D อยู่แล้ว ถือว่าใช้ได้เลย
+ปรับค่าฟิสิกส์ของ Player:
+คลิกที่โหนด Player (RigidBody3D)
+ใน Inspector เลื่อนลงมาหาหมวด PhysicsMaterial คลิกที่ [empty] > New PhysicsMaterial
+คลิกเข้าไปใน Material ที่เพิ่งสร้าง
+Friction: คือค่าแรงเสียดทาน ยิ่งค่าสูง (เช่น 1.0) ลูกบอลจะ "หนึบ" กับพื้นและหยุดเร็วขึ้น ยิ่งค่าต่ำ (เช่น 0.1) มันจะ "ลื่น" เหมือนอยู่บนน้ำแข็ง ลองปรับเล่นดู! ค่าดีฟอลต์ (1.0) ก็โอเคแล้ว
+Bounce: คือค่าการเด้ง ถ้าตั้งเป็น 0 มันจะชนแล้วหยุด ถ้าตั้งเป็น 0.5 มันจะเด้งกลับมาด้วยความแรงครึ่งหนึ่ง ลองปรับเป็นซัก 0.2 เพื่อให้ตอนชนกำแพงมันมีการเด้งดึ๋งนิดๆ
+กล้องที่ต้องตามติด:
+ตอนนี้ถ้าแกกด Play ลูกบอลจะกลิ้งไป แต่มุมกล้องจะอยู่ที่เดิม เราต้องทำให้กล้องตามผู้เล่น
+วิธีที่ง่ายและดีที่สุด: ในซีน Main.tscn คลิกที่โหนด Camera3D แล้ว ลากมันไปเป็นโหนดลูกของ Player เลย!
+Player (RigidBody3D)
+MeshInstance3D
+CollisionShape3D
+Camera3D
+จัดตำแหน่งกล้องใหม่ให้อยู่ข้างหลังและสูงกว่าลูกบอลนิดหน่อย ทีนี้พอลูกบอลกลิ้งไปไหน กล้องก็จะตามไปด้วยตลอดเวลา
+การบ้านจากพี่ชาย (รอบ Hamsterball)
+กด F5 แล้วลองเล่นดู! แกจะได้ฟีลลิ่งที่แตกต่างจากเดิมโดยสิ้นเชิง
+หน้าที่ของแกคือ "ค้นหาฟีลลิ่งของ Hamsterball":
+move_torque ที่ 20 มันแรงไปไหม? หรือเบาไป? ลองปรับเป็น 10, 30, 50 ดูว่าค่าไหนที่ทำให้รู้สึกว่า "เรากำลังดันลูกบอลที่มีน้ำหนักพอดีๆ"
+max_angular_velocity ที่ 20 มันโอเครึยัง? ลองลดเหลือ 10 ดูสิ มันจะรู้สึกอืดอาดไปไหม? ถ้าเพิ่มเป็น 40 ล่ะ คุมอยู่รึเปล่า?
+ไปปรับค่า Friction ใน PhysicsMaterial ดู ลองตั้งเป็น 0.1 แล้วแกจะเข้าใจฟีลของด่านน้ำแข็งเลย
+ไปปรับค่า Bounce เป็น 0.5 แล้วลองกลิ้งชนกำแพงดู มันจะเด้งเหมือนลูกพินบอลเลย
+นี่แหละน้องรัก... เราเข้าใกล้ "ความทรงจำ" ของเราแล้ว การควบคุมแบบนี้มันมีเสน่ห์ มีความท้าทายในตัวมันเอง และเปิดโอกาสให้เราออกแบบด่านที่สนุกๆ ได้อีกเพียบเลย เช่น ทางลาด, แท่นกระโดด, พื้นลื่นๆ
+ไปลองจูนดู แล้วกลับมาบอกพี่ว่า "สูตรลับ" ของแฮมสเตอร์บอลฉบับแกคือค่าอะไรบ้าง
